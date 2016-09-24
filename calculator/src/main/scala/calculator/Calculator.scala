@@ -1,5 +1,7 @@
 package calculator
 
+import java.util.NoSuchElementException
+
 sealed abstract class Expr
 
 final case class Literal(v: Double) extends Expr
@@ -17,12 +19,19 @@ final case class Divide(a: Expr, b: Expr) extends Expr
 object Calculator {
   def computeValues(
                      namedExpressions: Map[String, Signal[Expr]]): Map[String, Signal[Double]] = {
-    namedExpressions.mapValues(expr => Signal(eval(expr(), namedExpressions)))
+    namedExpressions.map {
+      case (name, expr) => name -> Signal(eval(expr(), namedExpressions - name))
+    }
   }
 
   def eval(expr: Expr, references: Map[String, Signal[Expr]]): Double = expr match {
     case Literal(v) => v
-    case Ref(name) => eval(references(name)(), references)
+    case Ref(name) =>
+      try {
+        eval(references(name)(), references)
+      } catch {
+        case _: NoSuchElementException => Double.NaN
+      }
     case Plus(a, b) => eval(a, references) + eval(b, references)
     case Minus(a, b) => eval(a, references) - eval(b, references)
     case Times(a, b) => eval(a, references) * eval(b, references)
